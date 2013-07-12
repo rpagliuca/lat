@@ -4,30 +4,46 @@ grepflag=off
 replaceflag=off
 cleanbkpflag=off
 prettyflag=off
+caseinsensitiveflag=off
 grepstring=
 replacepattern=
 
-while getopts hpg:r:c opt
+while getopts ihpg:r:c opt
 do
     case "$opt" in
       p)  prettyflag=on;;
       g)  grepflag=on; grepstring="$OPTARG";;
+      i)  caseinsensitiveflag=on;;
       r)  replaceflag=on; replacepattern="$OPTARG";;
       c)  cleanbkpflag=on;;
       \?|h)		# unknown flag
       	  echo >&2 \
-	  "usage: $0 [[-g \"string_to_grep\" <-p>]|[-r \"replace_pattern\"]|[-c]]"
+      "usage: $0 <-p> [[-g \"string_to_grep\" <-i>]|[-r \"replace_pattern\"]|[-c]]"
+
 	  exit 1;;
     esac
 done
 shift `expr $OPTIND - 1`
+
+# If -p (pretty) flag was used without -g (grep), then format grep output that is input from pipe (stdin)
+if [ $prettyflag == on ] && [ $grepflag == off ]; then
+    PIPEINPUT=$(cat)
+    echo "$PIPEINPUT" | gawk 'match($0, /^(.*):([0-9]+): *(.*)$/, m) { if (m[1] != last_file) { marcador = "\n====================================================================\n"; print marcador m[1] marcador; } print "#" m[2] ": " m[3] "\n"; last_file = m[1] }'
+    exit 0
+fi
 
 #replacepattern="'"$replacepattern"'"
 
 if [ $grepflag == on ]
 then
 
-	OUTPUT=`find . -type f ! -name "*.lat.bkp" ! -name "*.jpg" ! -name "*.png" ! -name "*.gif" ! -name "*.JPG" ! -name "*.PNG" ! -name "*.GIF" ! -name "*.swf" ! -name "*.zip" ! -name "*.mp3" ! -path "*.svn*" ! -path "*.git" | xargs file | grep "text" | awk -F: '{print $1}' | xargs grep -n -- "$grepstring"`
+    if [ $caseinsensitiveflag == on ]; then
+        CASEINSENSITIVEPARAM=" -i "
+    else
+        CASEINSENSITIVEPARAM=" "
+    fi
+
+	OUTPUT=`find . -type f ! -name "*.lat.bkp" ! -name "*.jpg" ! -name "*.png" ! -name "*.gif" ! -name "*.JPG" ! -name "*.PNG" ! -name "*.GIF" ! -name "*.swf" ! -name "*.zip" ! -name "*.mp3" ! -path "*.svn*" ! -path "*.git" | xargs file | grep "text" | awk -F: '{print $1}' | xargs grep $CASEINSENSITIVEPARAM -n -- "$grepstring"`
     if  [ $prettyflag == on ]; then
         echo "$OUTPUT" | gawk 'match($0, /^(.*):([0-9]+): *(.*)$/, m) { if (m[1] != last_file) { marcador = "\n====================================================================\n"; print marcador m[1] marcador; } print "#" m[2] ": " m[3] "\n"; last_file = m[1] }'
     else
