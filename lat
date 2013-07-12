@@ -3,18 +3,20 @@
 grepflag=off
 replaceflag=off
 cleanbkpflag=off
+prettyflag=off
 grepstring=
 replacepattern=
 
-while getopts g:r:c opt
+while getopts hpg:r:c opt
 do
     case "$opt" in
+      p)  prettyflag=on;;
       g)  grepflag=on; grepstring="$OPTARG";;
       r)  replaceflag=on; replacepattern="$OPTARG";;
       c)  cleanbkpflag=on;;
-      \?)		# unknown flag
+      \?|h)		# unknown flag
       	  echo >&2 \
-	  "usage: $0 [[-g \"string_to_grep\"]|[-r \"replace_pattern\"]|[-c]]"
+	  "usage: $0 [[-g \"string_to_grep\" <-p>]|[-r \"replace_pattern\"]|[-c]]"
 	  exit 1;;
     esac
 done
@@ -25,7 +27,12 @@ shift `expr $OPTIND - 1`
 if [ $grepflag == on ]
 then
 
-	find . -type f ! -name "*.lat.bkp" ! -name "*.jpg" ! -name "*.png" ! -name "*.gif" ! -name "*.JPG" ! -name "*.PNG" ! -name "*.GIF" ! -name "*.swf" ! -name "*.zip" ! -name "*.mp3" ! -path "*.svn*" ! -path "*.git" | xargs file | grep "text" | awk -F: '{print $1}' | xargs grep -n -- "$grepstring" | gawk 'match($0, /^(.*):([0-9]+): *(.*)$/, m) { if (m[1] != last_file) { marcador = "\n====================================================================\n"; print marcador m[1] marcador; } print "#" m[2] ": " m[3] "\n"; last_file = m[1] }'
+	OUTPUT=`find . -type f ! -name "*.lat.bkp" ! -name "*.jpg" ! -name "*.png" ! -name "*.gif" ! -name "*.JPG" ! -name "*.PNG" ! -name "*.GIF" ! -name "*.swf" ! -name "*.zip" ! -name "*.mp3" ! -path "*.svn*" ! -path "*.git" | xargs file | grep "text" | awk -F: '{print $1}' | xargs grep -n -- "$grepstring"`
+    if  [ $prettyflag == on ]; then
+        echo "$OUTPUT" | gawk 'match($0, /^(.*):([0-9]+): *(.*)$/, m) { if (m[1] != last_file) { marcador = "\n====================================================================\n"; print marcador m[1] marcador; } print "#" m[2] ": " m[3] "\n"; last_file = m[1] }'
+    else
+        echo "$OUTPUT"
+    fi
 
 else
 
@@ -42,5 +49,3 @@ else
 	fi
 	
 fi
-
-
