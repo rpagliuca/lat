@@ -1,31 +1,39 @@
 #!/bin/bash
 
-grepflag=off
-replaceflag=off
-cleanbkpflag=off
-prettyflag=off
-caseinsensitiveflag=off
+grepflag=off # (-g STRING) Grep string in text files recursively under the current directory
+caseinsensitiveflag=off # (-i) Case insensitive grepping
+prettyflag=off # (-p) Pretty grepping output
+pipeflag=off # (-e) Output grepped filenames only (for piping)
+replaceflag=off # (-r) Replace string in text files recursively under the current directory
+cleanbkpflag=off # (-c) Delete generated backup files (after replacing)
+
 grepstring=
 replacepattern=
 
-while getopts ihpg:r:c opt
+while getopts ihpeg:r:c opt
 do
     case "$opt" in
-      p)  prettyflag=on;;
       g)  grepflag=on; grepstring="$OPTARG";;
       i)  caseinsensitiveflag=on;;
+      p)  prettyflag=on;;
+      e)  pipeflag=on;;
       r)  replaceflag=on; replacepattern="$OPTARG";;
       c)  cleanbkpflag=on;;
       \?|h)		# unknown flag
       	  echo >&2 \
-      "usage: $0 <-p> [[-g \"string_to_grep\" <-i>]|[-r \"replace_pattern\"]|[-c]]"
+      "usage: $0 <-[p|e]> [[-g \"string_to_grep\" <-i>]|[-r \"replace_pattern\"]|[-c]]"
 
 	  exit 1;;
     esac
 done
 shift `expr $OPTIND - 1`
 
-# If -p (pretty) flag was used without -g (grep), then format grep output that is input from pipe (stdin)
+# If -e (pipeflag) or -p (pretty output) flags were used without -g (grep), then format grep output that is input from pipe (stdin)
+if [ $pipeflag == on ] && [ $grepflag == off ]; then
+    PIPEINPUT=$(cat)
+    echo "$PIPEINPUT" | gawk 'match($0, /^(.*):([0-9]+): *(.*)$/, m) { if (m[1] != last_file) { print m[1]; } last_file = m[1]; }'
+    exit 0
+fi
 if [ $prettyflag == on ] && [ $grepflag == off ]; then
     PIPEINPUT=$(cat)
     echo "$PIPEINPUT" | gawk 'match($0, /^(.*):([0-9]+): *(.*)$/, m) { if (m[1] != last_file) { marcador = "\n====================================================================\n"; print marcador m[1] marcador; } print "#" m[2] ": " m[3] "\n"; last_file = m[1] }'
@@ -43,11 +51,16 @@ then
         CASEINSENSITIVEPARAM=" "
     fi
 
-	OUTPUT=`find . -type f ! -name "*.lat.bkp" ! -name "*.jpg" ! -name "*.png" ! -name "*.gif" ! -name "*.JPG" ! -name "*.PNG" ! -name "*.GIF" ! -name "*.swf" ! -name "*.zip" ! -name "*.mp3" ! -path "*.svn*" ! -path "*.git" | xargs file | grep "text" | awk -F: '{print $1}' | xargs grep $CASEINSENSITIVEPARAM -n -- "$grepstring"`
-    if  [ $prettyflag == on ]; then
-        echo "$OUTPUT" | gawk 'match($0, /^(.*):([0-9]+): *(.*)$/, m) { if (m[1] != last_file) { marcador = "\n====================================================================\n"; print marcador m[1] marcador; } print "#" m[2] ": " m[3] "\n"; last_file = m[1] }'
+	OUTPUT=`find . -type f ! -name "*.lat.bkp" ! -name "*.jpg" ! -name "*.png" ! -name "*.gif" ! -name "*.JPG" ! -name "*.PNG" ! -name "*.GIF" ! -name "*.swf" ! -name "*.zip" ! -name "*.mp3" ! -path "*.svn*" ! -path "*.git" ! -path "*.git/*" | xargs file | grep "text" | awk -F: '{print $1}' | xargs grep $CASEINSENSITIVEPARAM -n -- "$grepstring"`
+
+    if  [ $pipeflag == on ]; then
+        echo "$OUTPUT" | gawk 'match($0, /^(.*):([0-9]+): *(.*)$/, m) { if (m[1] != last_file) { print m[1]; } last_file = m[1]; }'
     else
-        echo "$OUTPUT"
+        if  [ $prettyflag == on ]; then
+            echo "$OUTPUT" | gawk 'match($0, /^(.*):([0-9]+): *(.*)$/, m) { if (m[1] != last_file) { marcador = "\n====================================================================\n"; print marcador m[1] marcador; } print "#" m[2] ": " m[3] "\n"; last_file = m[1] }'
+        else
+            echo "$OUTPUT"
+        fi
     fi
 
 else
